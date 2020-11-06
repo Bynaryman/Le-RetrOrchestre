@@ -1,5 +1,4 @@
-// A very simple MIDI synth.
-// Greg Kennedy 2011
+// Binaryman aka Louis Ledoux
 
 #include <avr/pgmspace.h>
 //#include <MIDI.h>
@@ -103,7 +102,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity)
 
 void driveFloppies() {
   for (byte i = 0 ; i < number_floppies ; ++i) {
-    
+
     if (state_notes[i] != 0xFF) {
       digitalWrite(status_led_note_on, HIGH);
       t = micros();
@@ -137,18 +136,18 @@ void setup() {
   for (byte i = 0 ; i < number_floppies ; i++) { state_notes[i]=0xFF;}
 
   pinMode(status_led_arduino_on, OUTPUT);
-  
+
 
   for (byte i = 0 ; i < number_floppies ; ++i) {
     pinMode(PIN_OFFSET-(i<<1), OUTPUT);
     pinMode(PIN_OFFSET-(i<<1)-1, OUTPUT);
   }
-  
+
   pinMode(status_led_arduino_on, OUTPUT);
   pinMode(status_led_direction_disc_head, OUTPUT);
   pinMode(status_led_note_on, OUTPUT);
   Serial.begin(9600);
-  
+
 
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
