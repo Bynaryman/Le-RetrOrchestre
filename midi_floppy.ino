@@ -9,15 +9,21 @@
 #include <USB-MIDI.h>
 USBMIDI_CREATE_DEFAULT_INSTANCE();
 
-#define PIN_STEP_STEP 5
-#define PIN_STEP_DIRECTION 7
-#define status_led_1 41
-#define status_led_2 39
-#define status_led_3 6
+#define PIN_OFFSET 53
 
-// MIDI channel to answer to, 0x00 - 0x0F
-#define myChannel 0x00
+#define status_led_arduino_on 2
+#define status_led_direction_disc_head 3
+#define status_led_note_on 4
 
+#define number_floppies 2
+#define maximum_number_floppies 18 // let's use only double pins of arduino due
+
+#define C0 12
+#define C6 84
+#define minimum_floppy_note C0
+#define maximum_floppy_note C6
+
+// /!\ TODO(binaryman): note that E5 and D#5 are bad but in the bounds
 
 // comment of the 128 frequencies of midi format round to nearest integer
 // uint16_t frequency[128] PROGMEM = {
@@ -48,154 +54,126 @@ uint16_t half_periods[128] PROGMEM = {
 119, 113, 106, 100, 95, 89, 84, 84, 75, 71, 67, 63,
 60, 56, 53, 50, 47, 45, 42, 40
 };
+
+uint16_t state_notes[number_floppies] = {0};
+byte state_positions[number_floppies] = {0};
+byte state_directions[number_floppies] = {0};
+byte state_blinks[number_floppies] = {0};
+unsigned long long state_previous_times[number_floppies] = {0};
+unsigned long long t;
+
 // variables
-int dirCount = 0;
-int dir = 0;
-int limit = 170;
-int tune = 0;
-bool state_note = 0;  // 0 is note off, 1 is note on
-bool state_blink = 0;
-uint16_t half_period = 0;  // (1000/f) (ms)
-//unsigned long long currentTime = 0;
-unsigned long long previousTime = 0;
+int limit = 158;
+//unsigned long long previousTime = 0;
 
 void handleNoteOn(byte channel, byte pitch, byte velocity)
 {
-  state_note = 1;
-  half_period = pgm_read_word(&half_periods[pitch]);
-  digitalWrite(LED_BUILTIN, HIGH);
-  switch (pitch % 3) {
-    case 0:
-      digitalWrite(status_led_1, HIGH);
-      break;
-    case 1:
-      digitalWrite(status_led_2, HIGH);
-      break;
-//    case 2:
-//      digitalWrite(status_led_3, HIGH);
-//      break;
-    default:
-      break;
+  if (pitch < minimum_floppy_note || pitch > maximum_floppy_note) {
+    state_notes[channel-1] = 0xFF;
   }
+  else {
+    state_notes[channel-1] = pgm_read_word(&half_periods[pitch]);
+  }
+  //digitalWrite(status_led_note_on, HIGH);
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity)
 {
-  state_note = 0;
-  half_period = 0;
-  digitalWrite(LED_BUILTIN, LOW);
-  switch (pitch % 3) {
-    case 0:
-      digitalWrite(status_led_1, LOW);
-      break;
-    case 1:
-      digitalWrite(status_led_2, LOW);
-      break;
-    case 2:
-      digitalWrite(status_led_3, LOW);
-      break;
-    default:
-      break;
-  }
+  state_notes[channel-1] = 0xFF;
+  digitalWrite(status_led_note_on, LOW);
 }
 
-void counterUpdate() {
+// void countersUpdate() {
+//
+//     if (dirCount >= limit) {
+//       dir = 1;
+//       digitalWrite(PIN_STEP_DIRECTION, HIGH);
+//     }
+//     if (dirCount <= 0) {
+//       dir = 0;
+//       digitalWrite(PIN_STEP_DIRECTION, LOW);
+//     }
+//     if (dir == 0) {
+//       dirCount++;
+//     } else {
+//       dirCount--;
+//     }
+//
+// }
 
-    if (dirCount >= limit) {
-      dir = 1;
-      digitalWrite(PIN_STEP_DIRECTION, HIGH);
-    }
-    if (dirCount <= 0) {
-      dir = 0;
-      digitalWrite(PIN_STEP_DIRECTION, LOW);
-    }
-    if (dir == 0) {
-      dirCount++;
+void driveFloppies() {
+  for (byte i = 0 ; i < number_floppies ; ++i) {
+    
+    if (state_notes[i] != 0xFF) {
+      digitalWrite(status_led_note_on, HIGH);
+      t = micros();
+      if (t >= state_previous_times[i] + state_notes[i]) {
+        state_previous_times[i]=t;
+        state_blinks[i] = 1-state_blinks[i];
+        digitalWrite(PIN_OFFSET-(i<<1), state_blinks[i]);
+        if (state_positions[i] >= limit) {
+          state_directions[i] = 1;
+          digitalWrite(PIN_OFFSET-(i<<1)-1, HIGH);
+        }
+        if (state_positions[i] <= 0) {
+          state_directions[i] = 0;
+          digitalWrite(PIN_OFFSET-(i<<1)-1, LOW);
+        }
+        if (state_directions[i] == 0) {
+          state_positions[i]++;
+        } else {
+          state_positions[i]--;
+        }
+      }
     } else {
-      dirCount--;
+      digitalWrite(status_led_note_on,HIGH);
+      digitalWrite(PIN_OFFSET-(i<<1), LOW);
     }
-  
-}
-
-void driveFloppy() {
-  if (state_note == 1) {
-    if (micros() >= previousTime + half_period) {
-      previousTime=micros();
-      state_blink = 1-state_blink;
-      digitalWrite(PIN_STEP_STEP, state_blink);
-      counterUpdate();
-    }
-  } else {
-    digitalWrite(PIN_STEP_STEP, LOW);
   }
 }
 
-//setup: declaring iputs and outputs and begin serial
+//setup: declaring iputs and outputs
 void setup() {
+  for (byte i = 0 ; i < number_floppies ; i++) { state_notes[i]=0xFF;}
 
-  pinMode(PIN_STEP_STEP, OUTPUT);
-  pinMode(PIN_STEP_DIRECTION, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(status_led_1, OUTPUT);
-  pinMode(status_led_2, OUTPUT);
-  pinMode(status_led_3, OUTPUT);
+  pinMode(status_led_arduino_on, OUTPUT);
+  
 
-  //digitalWrite(status_led_3, HIGH);
+  for (byte i = 0 ; i < number_floppies ; ++i) {
+    pinMode(PIN_OFFSET-(i<<1), OUTPUT);
+    pinMode(PIN_OFFSET-(i<<1)-1, OUTPUT);
+  }
+  
+  pinMode(status_led_arduino_on, OUTPUT);
+  pinMode(status_led_direction_disc_head, OUTPUT);
+  pinMode(status_led_note_on, OUTPUT);
+  Serial.begin(9600);
+  
+
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
+  MIDI.begin(MIDI_CHANNEL_OMNI);  // Listen to all incoming messages
+  //MIDI.begin(1);
 
-  //start serial with midi baudrate 31250
-  // or 38400 for debugging (eg MIDI over serial from PC)
-  //Serial.begin(31250);
-  //MIDI.begin(MIDI_CHANNEL_OMNI);  // Listen to all incoming messages
-  MIDI.begin(1);
-
-  digitalWrite(PIN_STEP_DIRECTION, HIGH);
-  for (int i = 0 ; i < limit ; i++) {
-    digitalWrite(PIN_STEP_STEP, HIGH);
-    delay(5);
-    digitalWrite(PIN_STEP_STEP, LOW);
-    delay(5);
-
+  for (byte i = 0 ; i < number_floppies ; ++i) {
+    //Serial.println(PIN_OFFSET-(i<<1)-1);
+    digitalWrite(PIN_OFFSET-(i<<1)-1, HIGH);
+    for (int j = 0 ; j < limit ; j++) {
+      digitalWrite(PIN_OFFSET-(i<<1), HIGH);
+      delay(5);
+      digitalWrite(PIN_OFFSET-(i<<1), LOW);
+      delay(5);
+    }
+    digitalWrite(PIN_OFFSET-(i<<1)-1, LOW);
   }
-  digitalWrite(PIN_STEP_DIRECTION, LOW);
+
+  digitalWrite(status_led_arduino_on, HIGH);
+
 }
 
 //loop: wait for serial data
 void loop () {
   // Call MIDI.read the fastest you can for real-time performance.
-  MIDI.read(0);
-  digitalWrite(status_led_3, dir);
-  driveFloppy();
-}
-
-void stepPlay(int freq_note) {
-  digitalWrite(PIN_STEP_STEP, HIGH);
-  delay((1000 / (freq_note)) / 2);
-  digitalWrite(PIN_STEP_STEP, LOW);
-  delay((1000 / (freq_note)) / 2);
-}
-
-//int getNote(){
-//  if ( ((t/500)%13)==((t/500)%26) ) {
-//    note = notes[(t/500)%13];
-//  } else {
-//    note = notes[12-((t/500)%13)];
-//  }
-//}
-
-void counterIncrement() {
-  if (dirCount >= limit) {
-    dir = 1;
-    digitalWrite(PIN_STEP_DIRECTION, HIGH);
-  }
-  if (dirCount <= 0) {
-    dir = 0;
-    digitalWrite(PIN_STEP_DIRECTION, LOW);
-  }
-  if (dir == 0) {
-    dirCount++;
-  } else {
-    dirCount--;
-  }
+  MIDI.read();
+  driveFloppies();
 }
