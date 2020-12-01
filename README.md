@@ -7,7 +7,7 @@ Normally the cool stuff is here so I can catch your curiosity. Video / YT incomi
 
 ## Introduction
 
-blabla
+Transform your old computer's parts (and not only) into midi instrument.
 list of features
 
 ## Technical Part
