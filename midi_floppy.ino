@@ -1,20 +1,21 @@
 // Binaryman aka Louis Ledoux
 
 #include <avr/pgmspace.h>
-//#include <MIDI.h>
-//MIDI_CREATE_DEFAULT_INSTANCE();
-////MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
+#include <MIDI.h>
+MIDI_CREATE_DEFAULT_INSTANCE();
+//MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
-#include <USB-MIDI.h>
-USBMIDI_CREATE_DEFAULT_INSTANCE();
+//#include <USB-MIDI.h>
+//USBMIDI_CREATE_DEFAULT_INSTANCE();
 
-#define PIN_OFFSET 53
+//#define PIN_OFFSET 53
+#define PIN_OFFSET 9
 
 #define status_led_arduino_on 2
 #define status_led_direction_disc_head 3
 #define status_led_note_on 4
 
-#define number_floppies 2
+#define number_floppies 1
 #define maximum_number_floppies 18 // let's use only double pins of arduino due
 
 #define C0 12
@@ -23,6 +24,8 @@ USBMIDI_CREATE_DEFAULT_INSTANCE();
 #define maximum_floppy_note C6
 
 // /!\ TODO(binaryman): note that E5 and D#5 are bad but in the bounds
+// /!\ TODO(binaryman): new quest : find the bad notes of scanner. might depend on the material it is play on
+
 
 // comment of the 128 frequencies of midi format round to nearest integer
 // uint16_t frequency[128] PROGMEM = {
@@ -40,7 +43,7 @@ USBMIDI_CREATE_DEFAULT_INSTANCE();
 // };
 
 // precomputed LUT of half periods
-uint16_t half_periods[128] PROGMEM = {
+const uint16_t half_periods[128] PROGMEM = {
 62500, 55556, 55556, 50000, 50000, 45455, 41667, 41667, 38462, 35714, 33333, 33333, 31250, 29412, 27778, 26316, 23810, 22727, 21739, 20833,19231,
 17857, 17241,16129,
 15152, 14286, 13514, 12821, 12195, 11364, 10870, 10204, 9615, 9091, 8621, 8065,
@@ -62,7 +65,7 @@ unsigned long long state_previous_times[number_floppies] = {0};
 unsigned long long t;
 
 // variables
-int limit = 158;
+int limit = 1580;
 //unsigned long long previousTime = 0;
 
 void handleNoteOn(byte channel, byte pitch, byte velocity)
@@ -73,7 +76,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity)
   else {
     state_notes[channel-1] = pgm_read_word(&half_periods[pitch]);
   }
-  //digitalWrite(status_led_note_on, HIGH);
+  digitalWrite(status_led_note_on, HIGH);
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity)
@@ -104,7 +107,7 @@ void driveFloppies() {
   for (byte i = 0 ; i < number_floppies ; ++i) {
 
     if (state_notes[i] != 0xFF) {
-      digitalWrite(status_led_note_on, HIGH);
+      //digitalWrite(status_led_note_on, HIGH);
       t = micros();
       if (t >= state_previous_times[i] + state_notes[i]) {
         state_previous_times[i]=t;
@@ -125,7 +128,7 @@ void driveFloppies() {
         }
       }
     } else {
-      digitalWrite(status_led_note_on,HIGH);
+      //digitalWrite(status_led_note_on,HIGH);
       digitalWrite(PIN_OFFSET-(i<<1), LOW);
     }
   }
@@ -146,7 +149,7 @@ void setup() {
   pinMode(status_led_arduino_on, OUTPUT);
   pinMode(status_led_direction_disc_head, OUTPUT);
   pinMode(status_led_note_on, OUTPUT);
-  Serial.begin(9600);
+  //Serial.begin(9600);
 
 
   MIDI.setHandleNoteOn(handleNoteOn);
@@ -165,9 +168,7 @@ void setup() {
     }
     digitalWrite(PIN_OFFSET-(i<<1)-1, LOW);
   }
-
-  digitalWrite(status_led_arduino_on, HIGH);
-
+  
 }
 
 //loop: wait for serial data
