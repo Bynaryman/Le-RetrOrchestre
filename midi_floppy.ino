@@ -1,8 +1,8 @@
 // Binaryman aka Louis Ledoux
 
 #include <avr/pgmspace.h>
-#include <MIDI.h>
-MIDI_CREATE_DEFAULT_INSTANCE();
+//#include <MIDI.h>
+//MIDI_CREATE_DEFAULT_INSTANCE();
 //MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
 //#include <USB-MIDI.h>
@@ -13,7 +13,7 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 
 #define status_led_arduino_on 2
 #define status_led_direction_disc_head 3
-#define status_led_note_on 4
+#define status_led_note_on LED_BUILTIN
 
 #define number_floppies 1
 #define maximum_number_floppies 18 // let's use only double pins of arduino due
@@ -65,7 +65,7 @@ unsigned long long state_previous_times[number_floppies] = {0};
 unsigned long long t;
 
 // variables
-int limit = 1580;
+int limit = 158;
 //unsigned long long previousTime = 0;
 
 void handleNoteOn(byte channel, byte pitch, byte velocity)
@@ -152,10 +152,10 @@ void setup() {
   //Serial.begin(9600);
 
 
-  MIDI.setHandleNoteOn(handleNoteOn);
-  MIDI.setHandleNoteOff(handleNoteOff);
-  MIDI.begin(MIDI_CHANNEL_OMNI);  // Listen to all incoming messages
-  //MIDI.begin(1);
+  usbMIDI.setHandleNoteOn(handleNoteOn);
+  usbMIDI.setHandleNoteOff(handleNoteOff);
+  //usbMIDI.begin(MIDI_CHANNEL_OMNI);  // Listen to all incoming messages
+  //usbMIDI.begin(1);
 
   for (byte i = 0 ; i < number_floppies ; ++i) {
     //Serial.println(PIN_OFFSET-(i<<1)-1);
@@ -168,12 +168,12 @@ void setup() {
     }
     digitalWrite(PIN_OFFSET-(i<<1)-1, LOW);
   }
-  
+
 }
 
 //loop: wait for serial data
 void loop () {
-  // Call MIDI.read the fastest you can for real-time performance.
-  MIDI.read();
+  // Call usbMIDI.read the fastest you can for real-time performance.
+  usbMIDI.read();
   driveFloppies();
 }
