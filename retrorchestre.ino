@@ -95,9 +95,22 @@ uint16_t m_state_current_tick_scanners[NUMBER_SCANNERS] = {0};
 unsigned int m_scanner_offset = NUMBER_FDDS;
 
 // HDD
+#if NUMBER_HDDS > 0
+#if HDD_TRIGGER_DURATION_US < TIMER_RESOLUTION
+#error "HDD_TRIGGER_DURATION_US must be greater or equal than TIMER_RESOLUTION"
+#endif
+const uint16_t HDD_TRIGGER_DURATION_TICKS =
+    (HDD_TRIGGER_DURATION_US + TIMER_RESOLUTION - 1) / TIMER_RESOLUTION;
+uint8_t m_state_notes_hdds[NUMBER_HDDS];
+uint16_t m_state_trigger_countdown_hdds[NUMBER_HDDS] = {0};
+#endif
 unsigned int m_hdd_offset = NUMBER_FDDS+NUMBER_SCANNERS;
 
 void receiveNoteON(byte channel, byte pitch, byte velocity) {
+  if (velocity == 0) {
+    receiveNoteOFF(channel, pitch, velocity);
+    return;
+  }
   byte instrument_id = channel-1;
 	// detect what kind of instrument is played
 	// note that there is no check on array sizes, the host has to be correlated with declared instruments
@@ -126,8 +139,29 @@ void receiveNoteON(byte channel, byte pitch, byte velocity) {
 		}
 	}
 	else if (instrument_id >= m_hdd_offset) {
-		//break;
-		//todo hdd
+#if NUMBER_HDDS > 0
+		byte hdd_id = instrument_id - m_hdd_offset;
+		if (hdd_id < NUMBER_HDDS) {
+			if (pitch < MINIMUM_HDD_NOTE || pitch > MAXIMUM_HDD_NOTE) {
+				m_state_notes_hdds[hdd_id] = 0xFF;
+				m_state_trigger_countdown_hdds[hdd_id] = 0;
+				digitalWriteFast(instrument_id << 1, LOW);
+				digitalWriteFast((instrument_id << 1) + 1, LOW);
+			}
+			else {
+				m_state_notes_hdds[hdd_id] = pitch;
+				bool drive_positive = velocity >= 64;
+				if (drive_positive) {
+					digitalWriteFast(instrument_id << 1, HIGH);
+					digitalWriteFast((instrument_id << 1) + 1, LOW);
+				} else {
+					digitalWriteFast(instrument_id << 1, LOW);
+					digitalWriteFast((instrument_id << 1) + 1, HIGH);
+				}
+				m_state_trigger_countdown_hdds[hdd_id] = HDD_TRIGGER_DURATION_TICKS;
+			}
+		}
+#endif
 	}
 }
 
@@ -142,8 +176,15 @@ void receiveNoteOFF(byte channel, byte pitch, byte velocity) {
 		m_state_notes_scanners[instrument_id-m_scanner_offset] = 0xFF;
 	}
 	else if (instrument_id >= m_hdd_offset) {
-		//break;
-		//todo hdd
+#if NUMBER_HDDS > 0
+		byte hdd_id = instrument_id - m_hdd_offset;
+		if (hdd_id < NUMBER_HDDS) {
+			m_state_notes_hdds[hdd_id] = 0xFF;
+			m_state_trigger_countdown_hdds[hdd_id] = 0;
+			digitalWriteFast(instrument_id << 1, LOW);
+			digitalWriteFast((instrument_id << 1) + 1, LOW);
+		}
+#endif
 	}
 
 }
@@ -201,7 +242,20 @@ FASTRUN void conduct() {
 			digitalWriteFast(i << 1, LOW);
 		}
 	}
-	//todo hdd conduct
+#if NUMBER_HDDS > 0
+	for (byte i = 0, k = m_hdd_offset ; i < NUMBER_HDDS ; ++i, ++k) {
+		if (m_state_trigger_countdown_hdds[i] > 0) {
+			m_state_trigger_countdown_hdds[i]--;
+			if (m_state_trigger_countdown_hdds[i] == 0) {
+				digitalWriteFast(k << 1, LOW);
+				digitalWriteFast((k << 1) + 1, LOW);
+			}
+		} else {
+			digitalWriteFast(k << 1, LOW);
+			digitalWriteFast((k << 1) + 1, LOW);
+		}
+	}
+#endif
 }
 #pragma GCC pop_options
 
@@ -250,9 +304,11 @@ void setup() {
     Serial.begin(9600);
   #endif
 
-	for (unsigned int i = 0 ; i < NUMBER_FDDS + NUMBER_SCANNERS ; ++i) {
+	for (unsigned int i = 0 ; i < NUMBER_FDDS + NUMBER_SCANNERS + NUMBER_HDDS ; ++i) {
     	pinMode(i << 1, OUTPUT);
     	pinMode((i << 1) + 1, OUTPUT);
+		digitalWriteFast(i << 1, LOW);
+		digitalWriteFast((i << 1) + 1, LOW);
 	}
 	for (unsigned int i = 0 ; i < NUMBER_FDDS ; ++i) {
 		m_state_notes_fdds[i] = 0xFF;
@@ -260,6 +316,12 @@ void setup() {
 	for (unsigned int i = 0 ; i < NUMBER_SCANNERS ; ++i) {
 		m_state_notes_scanners[i] = 0xFF;
 	}
+#if NUMBER_HDDS > 0
+	for (unsigned int i = 0 ; i < NUMBER_HDDS ; ++i) {
+		m_state_notes_hdds[i] = 0xFF;
+		m_state_trigger_countdown_hdds[i] = 0;
+	}
+#endif
   for (byte i = 0 ; i < NUMBER_FDDS ; ++i) {
       digitalWriteFast((i << 1) + 1, HIGH);
       for (int j = 0 ; j < FDD_LIMIT ; j++) {

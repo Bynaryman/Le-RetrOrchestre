@@ -20,6 +20,11 @@
 #define MAXIMUM_SCANNER_NOTE 127
 #define SCANNER_LIMIT 4096
 
+// HDD trigger behaviour
+#define MINIMUM_HDD_NOTE 0
+#define MAXIMUM_HDD_NOTE 127
+#define HDD_TRIGGER_DURATION_US 5000
+
 // Timer
 #define TIMER_RESOLUTION 10  // (usec)
 
