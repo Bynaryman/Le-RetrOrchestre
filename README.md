@@ -1,11 +1,10 @@
 # Le RetrOrchestre
 
-Le RetrOrchestre is a mechatronic orchestra that combines art and science by turning retro computer hardware into MIDI-driven instruments. The name echoes the repeated "tr" sounds you hear when you pronounce it. Inspired by trailblazing work such as the Floppotron, this project modernises the floppy-drive concept, adds flatbed scanners, and is preparing hard-disk drives for the next expansion.
+Le RetrOrchestre is a mechatronic orchestra that combines art and science by turning retro computer hardware into MIDI-driven instruments. The name echoes the repeated "tr" sounds you hear when you pronounce it (and play it). Inspired by work such as the Floppotron, this project expands on this musical floppy-drive concept, adds flatbed scanners, and is preparing hard-disk drives for the next expansion.
 
 ## Highlights
 - Repurpose vintage hardware (floppy drives, scanners, and planned HDD modules) as MIDI-controlled instruments
-- Firmware evolves well-tested ideas from the floppy-drive community while supporting new motion systems
-- Teensy-based control path that enumerates as a class-compliant USB MIDI device for quick DAW integration
+- Teensy-based control path that enumerates as a class-compliant USB MIDI device for quick DAW (Digital Audio Workstation, e.g. Ableton, Reaper,..) integration
 - Centralised configuration for instrument counts, travel limits, and timing settings in `src/config.h`
 - Half-period lookup tables for every MIDI note keep the scheduler fast and timing accurate
 - Reference MIDI arrangements in `live/` to exercise the system during development
